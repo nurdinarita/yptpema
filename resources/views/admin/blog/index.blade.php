@@ -38,7 +38,7 @@
                             <td>{{ $loop->iteration }}</td>
                             <td>{{ $blog->title }}</td>
                             <td>{{ $blog->author->name }}</td>
-                            <td>{{ $blog->created_at->format('d M Y') }}</td>
+                            <td>{{ $blog->created_at->format('d M Y, h:m:s') }}</td>
                             <td>
                                 <a href="{{ url('admin/blog/'.$blog->id) }}" class="btn btn-info btn-sm">Show</a>
                                 <a href="{{ url('admin/blog/'.$blog->id.'/edit') }}" class="btn btn-warning btn-sm">Edit</a>
@@ -67,7 +67,35 @@
             type: 'get',
             url: '{{ url('admin/blog') }}?search='+value,
             success: function(res) {
-                // $('tbody').html(data);
+                // $('tbody').html(res);
+                $('tbody').html(
+                    res.map((blog, index) => {
+                        return `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${blog.title}</td>
+                                <td>${blog.author.name}</td>
+                                <td>${new Date(blog.created_at).toLocaleString('en-GB', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                    })}</td>
+                                <td>
+                                    <a href="{{ url('admin/blog') }}/${blog.id}" class="btn btn-info btn-sm">Show</a>
+                                    <a href="{{ url('admin/blog') }}/${blog.id}/edit" class="btn btn-warning btn-sm">Edit</a>
+                                    <form action="{{ url('admin/blog') }}/${blog.id}" method="POST" style="display: inline;">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        `;
+                    })
+                );
                 console.log(res);
             }
         });

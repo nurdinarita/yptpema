@@ -12,10 +12,13 @@ class BlogController extends Controller
 {
     public function index(Request $request)
     {   
+        $paginate = $request->paginate ?? 10;
+
         if($request->has('search')) {
-            $blogs = Blog::with('author')->where('title', 'like', '%'.$request->search.'%')->get();
+            $blogs = Blog::with('author')->where('title', 'like', '%'.$request->search.'%')->paginate($paginate);
+            return response()->json($blogs);
         } else {
-            $blogs = Blog::with('author')->get();
+            $blogs = Blog::with('author')->paginate($paginate);
         }
  
         return view('admin.blog.index')->with([
@@ -39,35 +42,33 @@ class BlogController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             'body' => 'required',
         ]);
-
+    
         // Upload image
-        if($request->hasFile('image')) {
+        if ($request->hasFile('image')) {
             $image = $request->file('image');
-
+    
             // Buat nama file unik
             $filename = time() . '.' . $image->getClientOriginalExtension();
-            
+    
             // Simpan file dengan nama khusus
             $path = $image->storePubliclyAs('blogs/images', $filename, 'public');
-            
+    
             // Simpan path di variabel
             $imagePath = 'storage/' . $path; // Simpan dengan jalur storage
-        
-            // Simpan ke model atau database (opsional)
-            // Blog::create(['image_path' => $imagePath]);
+    
+            // Simpan path di data validasi
             $validatedData['image'] = $imagePath;
         }
-
-        // Create slug
-        $validatedData['slug'] = Str::slug($request->title);
-
+    
+        // Create unique slug
+        $validatedData['slug'] = $this->generateUniqueSlug($request->title);
+    
         // Get user id
         $validatedData['author_id'] = auth()->user()->id;
-        
-        // return $request->all();
+    
         // Store data
         Blog::create($validatedData);
-
+    
         return redirect('admin/blog')->with('success', 'Blog created successfully');
     }
 
@@ -91,6 +92,7 @@ class BlogController extends Controller
 
     public function update(Request $request, $id)
     {
+        $blog = Blog::findOrFail($id);
         // Validation
         $validatedData = $request->validate([
             'title' => 'required|max:255',
@@ -121,13 +123,14 @@ class BlogController extends Controller
             $validatedData['image'] = $imagePath;
         }
 
-        // Create slug
-        $validatedData['slug'] = Str::slug($request->title);
+        // Perbarui slug hanya jika judul berubah
+        if ($request->title !== $blog->title) {
+            $validatedData['slug'] = $this->generateUniqueSlug($request->title);
+        }
 
         // Get user id
         $validatedData['author_id'] = auth()->user()->id;
         
-        // return $request->all();
         // Store data
         Blog::find($id)->update($validatedData);
 
@@ -144,5 +147,26 @@ class BlogController extends Controller
         Blog::destroy($id);
 
         return redirect('admin/blog')->with('success', 'Blog deleted successfully');
+    }
+
+        /**
+     * Generate a unique slug for a given title.
+     *
+     * @param string $title
+     * @return string
+     */
+    private function generateUniqueSlug($title)
+    {
+        $slug = Str::slug($title);
+        $originalSlug = $slug;
+        $counter = 1;
+    
+        // Check if slug already exists
+        while (Blog::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+    
+        return $slug;
     }
 }
